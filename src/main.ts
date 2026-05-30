@@ -1,6 +1,6 @@
 import * as path from 'path'
 import * as core from '@actions/core'
-import { GitHub } from '@docker/actions-toolkit/lib/github'
+import { GitHub } from '@docker/actions-toolkit/lib/github/github'
 import { Docker } from '@docker/actions-toolkit/lib/docker/docker'
 import { Toolkit } from '@docker/actions-toolkit/lib/toolkit'
 import { Util } from '@docker/actions-toolkit/lib/util'
@@ -9,9 +9,9 @@ import type {
   ProxyConfig
 } from '@docker/actions-toolkit/lib/types/docker/docker'
 
-import { create, createDryRun, inspect } from './imagetools'
+import { create, createDryRun, inspect } from './imagetools.js'
 
-import { isNonEmptyArray } from './types'
+import { isNonEmptyArray } from './types.js'
 
 /**
  * The main function for the action.

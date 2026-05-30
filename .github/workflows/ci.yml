@@ -7,6 +7,14 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      test-workflow:
+        type: boolean
+        default: false
+      update-coverage:
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -19,11 +27,11 @@ jobs:
     steps:
       - name: Checkout
         id: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
         id: setup-node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version-file: .node-version
           cache: npm
@@ -44,14 +52,66 @@ jobs:
         id: npm-ci-test
         run: npm run ci-test
 
+      - name: Upload coverage
+        uses: actions/upload-artifact@v7
+        with:
+          path: coverage/coverage-summary.json
+          archive: false
+
+  update-coverage:
+    needs: test-typescript
+    if:
+      ${{ github.event_name == 'workflow_dispatch' && inputs.update-coverage }}
+    name: Test Coverage Badge
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        id: checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        id: setup-node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Install Dependencies
+        id: npm-ci
+        run: npm ci
+
+      - name: Download coverage
+        uses: actions/download-artifact@v8
+        with:
+          name: coverage-summary.json
+          path: coverage/
+          skip-decompress: true
+
+      - name: Update Coverage Badge
+        id: npm-coverage
+        run: npm run coverage
+
+      - name: Commit Coverage Badge
+        id: commit-coverage-badge
+        run: |
+          git config --local user.email "coverage-badge-ci@users.noreply.github.com"
+          git config --local user.name "coverage-badge-ci"
+          git add .
+          git commit -m "Auto-update coverage badge"
+          git push
+
   test-action-dry-run:
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.test-workflow }}
     name: GitHub Actions Test (w/ --dry-run)
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         id: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Test Local Action
         id: test-action
@@ -68,6 +128,7 @@ jobs:
         run: echo "${{ steps.test-action.outputs.metadata }}"
 
   test-action:
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.test-workflow }}
     name: GitHub Actions Test
     runs-on: ubuntu-latest
     services:
@@ -79,21 +140,21 @@ jobs:
     steps:
       - name: Checkout
         id: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
 
       - name: Set up Docker Buildx
         id: buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
         with:
           version: latest
           driver-opts: network=host
 
       - name: Build linux/amd64 image
         id: amd-build
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           file: .github/test.Dockerfile
           builder: ${{ steps.buildx.outputs.name }}
@@ -103,7 +164,7 @@ jobs:
 
       - name: Build linux/arm64 image
         id: arm-build
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           file: .github/test.Dockerfile
           builder: ${{ steps.buildx.outputs.name }}

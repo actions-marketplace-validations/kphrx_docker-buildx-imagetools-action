@@ -21,14 +21,16 @@ jobs:
       dependency-type: ${{ steps.dependabot-metadata.outputs.dependency-type }}
       package-ecosystem:
         ${{ steps.dependabot-metadata.outputs.package-ecosystem }}
+      dependency-group:
+        ${{ steps.dependabot-metadata.outputs.dependency-group }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.ref }}
 
       - name: Fetch dependabot metadata
         id: dependabot-metadata
-        uses: dependabot/fetch-metadata@v2
+        uses: dependabot/fetch-metadata@v3
 
   build-dependabot-changes:
     runs-on: ubuntu-latest
@@ -37,24 +39,25 @@ jobs:
     # We only need to build the dist/ folder if the PR relates a production NPM dependency, otherwise we don't expect changes.
     if:
       needs.fetch-dependabot-metadata.outputs.package-ecosystem ==
-      'npm_and_yarn' && contains(fromJson('["direct:production", "indirect"]'),
-      needs.fetch-dependabot-metadata.outputs.dependency-type)
+      'npm_and_yarn' && (contains(fromJson('["direct:production", "indirect"]'),
+      needs.fetch-dependabot-metadata.outputs.dependency-type) ||
+      needs.fetch-dependabot-metadata.outputs.dependency-group == 'rollup')
     steps:
       - name: Generate token
         id: generate_token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ secrets.ACTION_AUTOMATION_APP_ID }}
           private-key: ${{ secrets.ACTION_AUTOMATION_PRIVATE_KEY }}
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.ref }}
           # Check out using an app token so any pushed changes will trigger checkruns
           token: ${{ steps.generate_token.outputs.token }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version-file: .node-version
           cache: npm
